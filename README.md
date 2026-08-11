@@ -1,48 +1,100 @@
 # MGS Light Manager for FS25
 
-## Description
-The **MGS Light Manager for FS25** is a Blender add-on designed for Farming Simulator 25 modders. This plugin simplifies the process of managing light types by allowing users to directly assign UV adjustments for specific light types with a single click. No manual UV adjustments are needed.
+MGS Light Manager for FS25 is a Blender add-on created for Farming Simulator 25 modders. It provides quick UV positioning for the FS25 vehicle light texture layout, making it easier to assign common vehicle light types without manually moving UV islands between tiles.
 
 ## Features
-- **Predefined Light Types**:
+
+- Predefined FS25 light positions:
   - Default Light
   - Default Light & High Beam
   - High Beam
   - Bottom Light
   - Top Light
   - DRL
-  - Turn Light (Left & Right)
+  - Turn Light Left
+  - Turn Light Right
   - Back Light
   - Brake Light
+  - Back & Brake Light
   - Reverse Light
-  - Work Light (Front, Back, Additional)
-- **Automatic UV Adjustments**:
-  - Clicking a light type button automatically adjusts the UVs to match the corresponding Farming Simulator 25 configuration.
+  - Work Light Front
+  - Work Light Back
+  - Work Light Additional
+  - Work Light Additional 2
+- One-click UV positioning for supported FS25 light types.
+- Smart preset behavior:
+  - If UVs are selected, only the selected UVs are moved.
+  - If no UVs are selected, the complete active UV map is moved.
+- UV arrow controls for moving selected UVs one tile up, down, left, or right.
+- Blender 5.x compatible UV-selection handling.
+- Backward-compatible support for older Blender versions.
+
+## Compatibility
+
+- Blender 3.0 or newer.
+- Includes compatibility handling for Blender 5.x.
+- Designed for Farming Simulator 25 modding workflows.
 
 ## Installation
-1. Download the plugin as a `.zip` file.
+
+1. Download `MGS_Light_Manager_FS25.zip`.
 2. Open Blender.
 3. Go to **Edit > Preferences > Add-ons**.
-4. Click **Install...** and select the `MGS_Light_Manager_FS25.zip` file.
-5. Enable the plugin from the Add-ons list.
-6. Access the plugin in the **UV/Image Editor > Tools** panel.
+4. Click **Install...** and select the downloaded ZIP file.
+5. Enable **MGS Light Manager for FS25**.
+6. Open the **UV Editor**.
+7. Press **N** if the sidebar is hidden.
+8. Open the **MGS** tab.
+
+> Do not extract the ZIP before installing it through Blender.
 
 ## Usage
-1. Open the **UV/Image Editor** in Blender.
-2. Navigate to the **MGS Light Manager** panel under the **Tools** section.
-3. Select the desired light type by clicking its corresponding button. For example:
-   - Click **Brake Light** to automatically adjust the UVs for a brake light.
-   - Click **Work Light Front** to configure UVs for a front-facing work light.
-4. The UV adjustments are applied immediately after clicking the button.
 
-## Requirements
-- Blender version **3.0.0** or higher.
+### Predefined light buttons
+
+1. Select a mesh and enter **Edit Mode**.
+2. Open the **UV Editor**.
+3. Open the **MGS** sidebar tab.
+4. Select the UVs you want to modify.
+5. Click the required light type.
+
+If UVs are selected, only those UVs are moved to the selected FS25 light tile.
+
+If no UVs are selected, the complete active UV map is moved instead.
+
+### UV movement arrows
+
+The arrow controls move the currently selected UVs by exactly one UV tile:
+
+- Up: `+1 V`
+- Down: `-1 V`
+- Left: `-1 U`
+- Right: `+1 U`
+
+The arrow controls require one or more UVs to be selected.
+
+## Version 1.1.0
+
+- Added Blender 5.x compatibility.
+- Added support for Blender 5.x UV selection API changes.
+- Preserved compatibility with older Blender versions.
+- Predefined light buttons now operate on selected UVs when a selection exists.
+- If no UV selection exists, predefined light buttons continue to move the complete UV map.
+- Improved UV movement reliability and error handling.
+- Updated the add-on location to the UV Editor sidebar under the **MGS** tab.
 
 ## License
-This plugin is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. See the `LICENSE` file for more details or visit [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.txt).
+
+MGS Light Manager for FS25 is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
+
+See the included `LICENSE` file for the complete license text.
 
 ## Support
-For questions or suggestions, contact **admin@mygamesteam.com**.
+
+For questions, bug reports, or suggestions:
+
+**admin@mygamesteam.com**
 
 ## Author
-Developed by **MyGameSteam** to streamline the Farming Simulator modding experience.
+
+Developed by **MyGameSteam** for the Farming Simulator modding community.

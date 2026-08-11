@@ -145,8 +145,7 @@ def _move_to_tile(context, target_u, target_v):
     if not loops:
         return False, 'No UV data found.'
 
-    # Match the original MGS behavior: use the first affected UV to determine
-    # the current integer tile, then shift the entire affected selection as one.
+    # Determine the current tile from the first affected UV.
     first_uv = loops[0][uv_layer].uv
     current_u = math.floor(first_uv.x)
     current_v = math.floor(first_uv.y)

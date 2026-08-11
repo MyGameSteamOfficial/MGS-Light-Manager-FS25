@@ -2,6 +2,12 @@
 
 MGS Light Manager for FS25 is a Blender add-on created for Farming Simulator 25 modders. It provides quick UV positioning for the FS25 vehicle light texture layout, making it easier to assign common vehicle light types without manually moving UV islands between tiles.
 
+## Download
+
+Download the latest stable version from the [GitHub Releases](https://github.com/MyGameSteamOfficial/MGS-Light-Manager-FS25/releases/latest).
+
+For normal installation, download `MGS_Light_Manager_FS25.zip` from the release **Assets**. Do not use GitHub's automatically generated source-code archives.
+
 ## Features
 
 - Predefined FS25 light positions:
@@ -37,16 +43,19 @@ MGS Light Manager for FS25 is a Blender add-on created for Farming Simulator 25 
 
 ## Installation
 
-1. Download `MGS_Light_Manager_FS25.zip`.
-2. Open Blender.
-3. Go to **Edit > Preferences > Add-ons**.
-4. Click **Install...** and select the downloaded ZIP file.
-5. Enable **MGS Light Manager for FS25**.
-6. Open the **UV Editor**.
-7. Press **N** if the sidebar is hidden.
-8. Open the **MGS** tab.
+> **Important:** Download the latest release from the **Releases** section of this repository. Do not download the repository source code (`Source code.zip`) unless you intend to modify or develop the add-on.
 
-> Do not extract the ZIP before installing it through Blender.
+1. Go to the latest GitHub release.
+2. Under **Assets**, download `MGS_Light_Manager_FS25.zip`.
+3. Do **not** extract the downloaded ZIP.
+4. Open Blender.
+5. Go to **Edit > Preferences > Add-ons**.
+6. Click **Install...** and select `MGS_Light_Manager_FS25.zip`.
+7. Enable **MGS Light Manager for FS25**.
+8. Open the **UV Editor**.
+9. Press **N** if the sidebar is hidden.
+10. Open the **MGS** tab.
+
 
 ## Usage
 

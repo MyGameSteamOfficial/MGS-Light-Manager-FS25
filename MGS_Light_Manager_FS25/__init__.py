@@ -2,7 +2,7 @@ bl_info = {
     'name': 'MGS Light Manager for FS25',
     'author': 'MyGameSteam',
     'blender': (3, 0, 0),
-    'version': (1, 1, 1),
+    'version': (1, 1, 2),
     'description': 'Manage FS25 light UV types and UV tile adjustments.',
     'warning': 'This tool modifies UV maps directly. Use with caution.',
     'location': 'UV Editor > Sidebar > MGS',
@@ -186,55 +186,254 @@ def get_all_uv_loops(bm):
     ]
 
 
+
+def get_mesh_selected_uv_loops(bm, uv_layer):
+    """
+    Return UV loops corresponding to geometry currently selected in the 3D View.
+
+    Face selection is preferred because UVs belong to face corners. For vertex
+    or edge selection modes, a loop is included when its vertex or edge is
+    selected. This works across every object participating in multi-object
+    Edit Mode and avoids relying on stale UV-editor selection state.
+    """
+    selected = []
+    seen = set()
+
+    for face in bm.faces:
+        face_selected = bool(face.select)
+
+        for loop in face.loops:
+            include = face_selected
+
+            if not include:
+                try:
+                    include = bool(loop.vert.select)
+                except AttributeError:
+                    pass
+
+            if not include:
+                try:
+                    include = bool(loop.edge.select)
+                except AttributeError:
+                    pass
+
+            if include:
+                key = loop.index
+                if key not in seen:
+                    seen.add(key)
+                    selected.append(loop)
+
+    return selected
+
+
+def get_mesh_selection_targets(context):
+    """
+    Gather selected mesh geometry from every mesh in multi-object Edit Mode.
+
+    The 3D View mesh selection is the source of truth:
+      - one selected light -> one light moves
+      - two selected lights -> both move
+      - Select All -> all move
+    """
+    targets = []
+
+    for obj in get_edit_mesh_objects(context):
+        bm = bmesh.from_edit_mesh(obj.data)
+        uv_layer = bm.loops.layers.uv.active
+
+        if uv_layer is None:
+            continue
+
+        loops = get_mesh_selected_uv_loops(bm, uv_layer)
+
+        if loops:
+            targets.append((obj, bm, uv_layer, loops))
+
+    return targets
+
+
+_mgs_last_selection_source = "MESH"
+_mgs_tracker_running = False
+
+
+def _area_under_mouse(context, event):
+    """
+    Return the actual Blender area and WINDOW region under the mouse.
+    event.mouse_x / mouse_y are window coordinates.
+    """
+    window = context.window
+    screen = window.screen if window is not None else None
+
+    if screen is None:
+        return None, None
+
+    x = event.mouse_x
+    y = event.mouse_y
+
+    for area in screen.areas:
+        if not (
+            area.x <= x < area.x + area.width
+            and area.y <= y < area.y + area.height
+        ):
+            continue
+
+        for region in area.regions:
+            if (
+                region.type == 'WINDOW'
+                and region.x <= x < region.x + region.width
+                and region.y <= y < region.y + region.height
+            ):
+                return area, region
+
+        return area, None
+
+    return None, None
+
+
+class MGS_OT_SelectionSourceTracker(bpy.types.Operator):
+    bl_idname = "mgs.selection_source_tracker"
+    bl_label = "MGS Selection Source Tracker"
+    bl_options = {'INTERNAL'}
+
+    _mouse_selection_source = None
+
+    def invoke(self, context, event):
+        global _mgs_tracker_running
+
+        if _mgs_tracker_running:
+            return {'CANCELLED'}
+
+        _mgs_tracker_running = True
+        self._mouse_selection_source = None
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+
+    def modal(self, context, event):
+        global _mgs_last_selection_source
+
+        # Mouse selection:
+        # Remember which editor the gesture STARTED in, then commit that source
+        # on RELEASE. This catches click-to-deselect, shift-click selection and
+        # normal click selection while ignoring clicks on the MGS sidebar.
+        if event.type in {'LEFTMOUSE', 'RIGHTMOUSE'}:
+            if event.value == 'PRESS':
+                area, region = _area_under_mouse(context, event)
+
+                if region is not None:
+                    if area.type == 'VIEW_3D':
+                        self._mouse_selection_source = "MESH"
+                    elif area.type == 'IMAGE_EDITOR':
+                        self._mouse_selection_source = "UV"
+                    else:
+                        self._mouse_selection_source = None
+                else:
+                    self._mouse_selection_source = None
+
+            elif event.value == 'RELEASE':
+                if self._mouse_selection_source is not None:
+                    _mgs_last_selection_source = self._mouse_selection_source
+
+                self._mouse_selection_source = None
+
+        # Keyboard selection commands are committed immediately according to
+        # the editor under the mouse. A/B/C cover select-all, box and circle
+        # selection; Alt+A is still event type A and is therefore included.
+        elif (
+            event.value == 'PRESS'
+            and event.type in {'A', 'B', 'C'}
+        ):
+            area, region = _area_under_mouse(context, event)
+
+            if region is not None:
+                if area.type == 'VIEW_3D':
+                    _mgs_last_selection_source = "MESH"
+                elif area.type == 'IMAGE_EDITOR':
+                    _mgs_last_selection_source = "UV"
+
+        return {'PASS_THROUGH'}
+
+
+def start_selection_source_tracker():
+    global _mgs_tracker_running
+
+    if _mgs_tracker_running:
+        return None
+
+    try:
+        bpy.ops.mgs.selection_source_tracker('INVOKE_DEFAULT')
+    except RuntimeError:
+        return 0.5
+
+    return None
+
+
+def get_operation_targets(context):
+    """
+    Both arrows and preset buttons use this exact same target resolver.
+
+    Last selection action in UV Editor:
+        operate only on selected UVs.
+
+    Last selection action in 3D View:
+        operate only on selected mesh geometry.
+
+    UV Sync enabled:
+        mesh selection is Blender's source of truth.
+    """
+    global _mgs_last_selection_source
+
+    objects = get_edit_mesh_objects(context)
+
+    if not objects:
+        return []
+
+    if uv_sync_enabled(context):
+        return get_mesh_selection_targets(context)
+
+    if _mgs_last_selection_source == "UV":
+        uv_targets = []
+
+        for obj in objects:
+            bm = bmesh.from_edit_mesh(obj.data)
+            uv_layer = bm.loops.layers.uv.active
+
+            if uv_layer is None:
+                continue
+
+            selected_uvs = get_selected_uv_loops(
+                context,
+                bm,
+                uv_layer
+            )
+
+            if selected_uvs:
+                uv_targets.append(
+                    (obj, bm, uv_layer, selected_uvs)
+                )
+
+        return uv_targets
+
+    return get_mesh_selection_targets(context)
+
+
 def move_selected_uvs(
     context,
     delta_u,
     delta_v
 ):
     """
-    Move selected UVs across ALL mesh objects currently in Edit Mode.
-
-    Examples:
-
-    Two objects + A in UV Editor:
-        both UV sets move.
-
-    One island selected:
-        only that island moves.
-
-    UV selection across several objects:
-        all selected UVs move.
+    Move UVs corresponding to currently selected 3D mesh geometry across all
+    objects participating in multi-object Edit Mode.
     """
 
-    objects = get_edit_mesh_objects(context)
+    targets = get_operation_targets(context)
 
-    if not objects:
-        return False, "No mesh objects are in Edit Mode."
+    if not targets:
+        return False, "No mesh geometry is selected in the 3D View."
 
-    moved_anything = False
-
-    for obj in objects:
-
-        bm = bmesh.from_edit_mesh(obj.data)
-
-        uv_layer = bm.loops.layers.uv.active
-
-        if uv_layer is None:
-            continue
-
-        selected = get_selected_uv_loops(
-            context,
-            bm,
-            uv_layer
-        )
-
-        if not selected:
-            continue
-
-        for loop in selected:
-
+    for obj, bm, uv_layer, loops in targets:
+        for loop in loops:
             uv = loop[uv_layer].uv
-
             uv.x += delta_u
             uv.y += delta_v
 
@@ -243,11 +442,6 @@ def move_selected_uvs(
             loop_triangles=False,
             destructive=False
         )
-
-        moved_anything = True
-
-    if not moved_anything:
-        return False, "No UVs are selected."
 
     return True, None
 
@@ -262,107 +456,47 @@ def move_uvs_to_tile(
     target_v
 ):
     """
-    Move the current selected UVs to a target FS25 tile.
+    Assign selected 3D mesh geometry to a target FS25 UV tile.
 
-    Selection may span several objects.
-
-    All selected UVs move by the SAME offset so their relative
-    positions remain unchanged.
+    Each UV keeps its exact local position inside its current tile. Only the
+    integer tile coordinate is replaced. This allows selected light parts that
+    currently occupy different tiles to converge into the same target tile
+    without changing their UV layout, shape, scale, or relative position
+    inside a tile.
     """
 
-    objects = get_edit_mesh_objects(context)
+    targets = get_operation_targets(context)
 
-    if not objects:
-        return False, "No mesh objects are in Edit Mode."
+    if not targets:
+        return False, "No mesh geometry is selected in the 3D View."
 
-    affected = []
+    moved_anything = False
 
-    # Gather selected UVs from every object.
-    for obj in objects:
-
-        bm = bmesh.from_edit_mesh(obj.data)
-
-        uv_layer = bm.loops.layers.uv.active
-
-        if uv_layer is None:
+    for obj, bm, uv_layer, loops in targets:
+        if not loops:
             continue
 
-        selected = get_selected_uv_loops(
-            context,
-            bm,
-            uv_layer
-        )
-
-        if selected:
-
-            affected.append(
-                (
-                    obj,
-                    bm,
-                    uv_layer,
-                    selected
-                )
-            )
-
-    # No explicit UV selection.
-    #
-    # Preserve older MGS behavior by falling back to the active object's
-    # complete UV map.
-    if not affected:
-
-        obj = context.edit_object
-
-        if obj is None or obj.type != 'MESH':
-            return False, "No UV data found."
-
-        bm = bmesh.from_edit_mesh(obj.data)
-
-        uv_layer = bm.loops.layers.uv.active
-
-        if uv_layer is None:
-            return False, "The active mesh has no UV map."
-
-        loops = get_all_uv_loops(bm)
-
-        if not loops:
-            return False, "No UV data found."
-
-        affected.append(
-            (
-                obj,
-                bm,
-                uv_layer,
-                loops
-            )
-        )
-
-    # Use the first affected UV to determine which tile the
-    # selected group currently occupies.
-    first_obj, first_bm, first_uv_layer, first_loops = affected[0]
-
-    first_uv = first_loops[0][first_uv_layer].uv
-
-    current_u = math.floor(first_uv.x)
-    current_v = math.floor(first_uv.y)
-
-    delta_u = target_u - current_u
-    delta_v = target_v - current_v
-
-    # Apply the exact same offset to every selected UV across every object.
-    for obj, bm, uv_layer, loops in affected:
-
         for loop in loops:
-
             uv = loop[uv_layer].uv
 
-            uv.x += delta_u
-            uv.y += delta_v
+            # Preserve the UV's local position within its current 1x1 tile.
+            local_u = uv.x - math.floor(uv.x)
+            local_v = uv.y - math.floor(uv.y)
+
+            # Replace only the tile coordinate.
+            uv.x = target_u + local_u
+            uv.y = target_v + local_v
 
         bmesh.update_edit_mesh(
             obj.data,
             loop_triangles=False,
             destructive=False
         )
+
+        moved_anything = True
+
+    if not moved_anything:
+        return False, "No UV data found."
 
     return True, None
 
@@ -728,6 +862,7 @@ class MGS_OT_MoveLight(
 # -----------------------------------------------------------------------------
 
 classes = (
+    MGS_OT_SelectionSourceTracker,
     MGS_PT_LightPanel,
     MGS_OT_MoveDown,
     MGS_OT_MoveUp,
@@ -738,8 +873,29 @@ classes = (
 )
 
 
-register, unregister = (
-    bpy.utils.register_classes_factory(
-        classes
-    )
-)
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+    if not bpy.app.timers.is_registered(
+        start_selection_source_tracker
+    ):
+        bpy.app.timers.register(
+            start_selection_source_tracker,
+            first_interval=0.25
+        )
+
+
+def unregister():
+    global _mgs_tracker_running
+    _mgs_tracker_running = False
+
+    if bpy.app.timers.is_registered(
+        start_selection_source_tracker
+    ):
+        bpy.app.timers.unregister(
+            start_selection_source_tracker
+        )
+
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)

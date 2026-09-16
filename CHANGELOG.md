@@ -1,5 +1,26 @@
 # Changelog
 
+## Version 1.1.2
+
+### Added
+- Added support for using selected geometry in the 3D View as the UV movement target.
+- Added multi-part 3D selection support for light-type presets and directional UV movement.
+- Added automatic selection-source handling between the UV Editor and 3D View.
+
+### Fixed
+- Fixed light-type presets applying one shared translation when selected light parts were located in different UV tiles.
+- Light-type presets now move selected UVs into the requested FS25 light tile while preserving each UV's local position inside the tile.
+- Directional arrow controls and light-type presets now use the same selection-targeting system.
+
+### Improved
+- Improved multi-object Edit Mode handling.
+- Improved workflow when switching between direct UV selection and 3D mesh selection.
+- Preserved Blender 3.x, Blender 4.x, and Blender 5.x compatibility handling.
+
+### Known Limitation
+- When all UVs remain selected in the UV Editor and the user then switches to a new 3D View selection, the previous UV selection may remain authoritative in some selection sequences. If this occurs, deselect the UV selection before using the new 3D selection.
+- Selection synchronization between the UV Editor and 3D View may be improved in a future update.
+
 ## Version 1.1.1
 
 ### Fixed
